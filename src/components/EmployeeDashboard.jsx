@@ -2,10 +2,8 @@ import React from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  BarChart, Bar,
 } from 'recharts';
 
-const COLORS = ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6'];
 const ALLOC_COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'];
 
 export default function EmployeeDashboard({ data, analysis }) {
@@ -21,7 +19,6 @@ export default function EmployeeDashboard({ data, analysis }) {
 
   return (
     <div>
-      {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Monthly Savings Target', value: fmt(savings_plan.monthly_savings_target), color: 'var(--accent-green)' },
@@ -37,22 +34,21 @@ export default function EmployeeDashboard({ data, analysis }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
-        {/* Income breakdown pie */}
         {income_breakdown.length > 0 && (
           <div className="card">
             <h3 style={{ fontSize: 14, marginBottom: 16, color: 'var(--text-secondary)' }}>Income Breakdown</h3>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={income_breakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                  {income_breakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={income_breakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}>
+                  {income_breakdown.map((_, i) => <Cell key={i} fill={ALLOC_COLORS[i % ALLOC_COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }} />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         )}
 
-        {/* Expense allocation pie */}
         {expense_allocation.length > 0 && (
           <div className="card">
             <h3 style={{ fontSize: 14, marginBottom: 16, color: 'var(--text-secondary)' }}>Budget Allocation</h3>
@@ -69,7 +65,6 @@ export default function EmployeeDashboard({ data, analysis }) {
         )}
       </div>
 
-      {/* Savings projection */}
       {savings_projection.length > 0 && (
         <div className="card" style={{ marginBottom: 24 }}>
           <h3 style={{ fontSize: 14, marginBottom: 16, color: 'var(--text-secondary)' }}>Savings Growth Projection</h3>
@@ -77,7 +72,7 @@ export default function EmployeeDashboard({ data, analysis }) {
             <AreaChart data={savings_projection}>
               <defs>
                 <linearGradient id="savingsGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
               </defs>
@@ -91,7 +86,6 @@ export default function EmployeeDashboard({ data, analysis }) {
         </div>
       )}
 
-      {/* Investment suggestions */}
       {investment_suggestions.length > 0 && (
         <div className="card">
           <h3 style={{ fontSize: 14, marginBottom: 16, color: 'var(--text-secondary)' }}>Investment Suggestions</h3>
