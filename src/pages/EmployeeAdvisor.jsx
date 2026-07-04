@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import ReactMarkdown from 'react-markdown';
 import { User, Upload, Send, AlertCircle, CheckCircle2, FileText } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 import EmployeeDashboard from '../components/EmployeeDashboard';
 
 const sampleQuestions = [
@@ -38,7 +38,7 @@ export default function EmployeeAdvisor() {
     formData.append('file', file);
 
     try {
-      const res = await axios.post('/api/employee/upload-salary', formData, {
+      const res = await api.post('/api/employee/upload-salary', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setSalaryData(res.data.salary_data);
@@ -56,7 +56,7 @@ export default function EmployeeAdvisor() {
   });
 
   const handleManualSubmit = async () => {
-    const res = await axios.postForm('/api/employee/manual-salary', manual);
+    const res = await api.postForm('/api/employee/manual-salary', manual);
     setSalaryData(res.data.salary_data);
     setManualMode(false);
   };
@@ -71,7 +71,7 @@ export default function EmployeeAdvisor() {
     setResult(null);
 
     try {
-      const res = await axios.post('/api/employee/ask', {
+      const res = await api.post('/api/employee/ask', {
         user_question: question,
         salary_data: salaryData,
         conversation_history: history,

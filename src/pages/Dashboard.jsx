@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 import CompanyDashboard from '../components/CompanyDashboard';
 import EmployeeDashboard from '../components/EmployeeDashboard';
 
@@ -12,8 +12,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      axios.get('/api/dashboard/demo').catch(() => ({ data: null })),
-      axios.get('/api/dashboard/stats').catch(() => ({ data: null })),
+      api.get('/api/dashboard/demo').catch(() => ({ data: null })),
+      api.get('/api/dashboard/stats').catch(() => ({ data: null })),
     ]).then(([demoRes, statsRes]) => {
       setDemo(demoRes.data);
       setStats(statsRes.data);

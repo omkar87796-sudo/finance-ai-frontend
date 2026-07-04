@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Building2, Send, Plus, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import api from '../utils/api';
 import CompanyDashboard from '../components/CompanyDashboard';
 
 const AGENT_STEPS = [
@@ -60,7 +60,7 @@ export default function CompanyAnalysis() {
     try {
       let response;
       if (isAdditional) {
-        response = await axios.post('/api/company/provide-data', {
+        response = await api.post('/api/company/provide-data', {
           user_question: question,
           company_name: companyName,
           original_data: parseData(companyData),
@@ -68,7 +68,7 @@ export default function CompanyAnalysis() {
           conversation_history: history,
         });
       } else {
-        response = await axios.post('/api/company/analyze', {
+        response = await api.post('/api/company/analyze', {
           user_question: question,
           company_name: companyName,
           company_data: parseData(companyData),
