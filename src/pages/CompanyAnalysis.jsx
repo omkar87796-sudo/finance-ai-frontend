@@ -5,11 +5,11 @@ import api from '../utils/api';
 import CompanyDashboard from '../components/CompanyDashboard';
 
 const AGENT_STEPS = [
-  { key: 'data_collection_complete', label: 'Data Collector',    done: false },
-  { key: 'research_complete',        label: 'Market Researcher', done: false },
-  { key: 'analysis_complete',        label: 'Data Analyst',      done: false },
-  { key: 'decisions_complete',       label: 'Decision Maker',    done: false },
-  { key: 'prediction_complete',      label: 'AI Predictor',      done: false },
+  { key: 'data_collection_complete', label: 'Data Collector' },
+  { key: 'research_complete',        label: 'Market Researcher' },
+  { key: 'analysis_complete',        label: 'Data Analyst' },
+  { key: 'decisions_complete',       label: 'Decision Maker' },
+  { key: 'prediction_complete',      label: 'AI Predictor' },
 ];
 
 const STEP_ORDER = AGENT_STEPS.map(s => s.key);
@@ -33,13 +33,24 @@ export default function CompanyAnalysis() {
   const [dataRequest, setDataRequest]       = useState('');
   const [additionalData, setAdditionalData] = useState('');
   const [history, setHistory] = useState([]);
+  // Store original data for the provide-data call
+  const [originalData, setOriginalData] = useState({});
 
   const parseData = (raw) => {
     try { return JSON.parse(raw); }
     catch { return { raw_input: raw }; }
   };
 
-  const handleAnalyze = async (isAdditional = false) => {
+  const simulateSteps = () => {
+    return STEP_ORDER.reduce((chain, step, i) => {
+      return chain.then(() => new Promise(res => setTimeout(() => {
+        setCurrentStep(step);
+        res();
+      }, i === 0 ? 800 : 3500)));
+    }, Promise.resolve());
+  };
+
+  const handleAnalyze = async () => {
     if (!companyName.trim() || !question.trim()) {
       setError('Please enter company name and your question.');
       return;
@@ -47,34 +58,22 @@ export default function CompanyAnalysis() {
     setLoading(true);
     setError('');
     setResult(null);
+    setNeedsMoreData(false);
+    setAdditionalData('');
     setCurrentStep('Starting pipeline…');
 
-    // Simulate step progress
-    const stepSimulator = STEP_ORDER.reduce((chain, step, i) => {
-      return chain.then(() => new Promise(res => setTimeout(() => {
-        setCurrentStep(step);
-        res();
-      }, i === 0 ? 800 : 3500)));
-    }, Promise.resolve());
+    const parsed = parseData(companyData);
+    setOriginalData(parsed);
+
+    const stepSimulator = simulateSteps();
 
     try {
-      let response;
-      if (isAdditional) {
-        response = await api.post('/api/company/provide-data', {
-          user_question: question,
-          company_name: companyName,
-          original_data: parseData(companyData),
-          additional_data: parseData(additionalData),
-          conversation_history: history,
-        });
-      } else {
-        response = await api.post('/api/company/analyze', {
-          user_question: question,
-          company_name: companyName,
-          company_data: parseData(companyData),
-          conversation_history: history,
-        });
-      }
+      const response = await api.post('/api/company/analyze', {
+        user_question: question,
+        company_name: companyName,
+        company_data: parsed,
+        conversation_history: history,
+      });
 
       await stepSimulator;
       const data = response.data;
@@ -89,10 +88,56 @@ export default function CompanyAnalysis() {
         ]);
       } else {
         setResult(data);
-        setNeedsMoreData(false);
         setHistory(prev => [
           ...prev,
           { role: 'user', content: question },
+          { role: 'assistant', content: data.final_response || '' },
+        ]);
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Analysis failed. Check that the backend is running.');
+    } finally {
+      setLoading(false);
+      setCurrentStep('');
+    }
+  };
+
+  const handleSubmitAdditional = async () => {
+    setLoading(true);
+    setError('');
+    setCurrentStep('Starting pipeline…');
+
+    const stepSimulator = simulateSteps();
+
+    try {
+      const response = await api.post('/api/company/provide-data', {
+        user_question: question,
+        company_name: companyName,
+        original_data: originalData,
+        additional_data: additionalData.trim()
+          ? parseData(additionalData)
+          : { note: 'No additional data provided' },
+        conversation_history: history,
+      });
+
+      await stepSimulator;
+      const data = response.data;
+
+      if (data.status === 'needs_more_data') {
+        setNeedsMoreData(true);
+        setDataRequest(data.message);
+        setAdditionalData('');
+        setHistory(prev => [
+          ...prev,
+          { role: 'user', content: additionalData || 'No additional data' },
+          { role: 'assistant', content: data.message },
+        ]);
+      } else {
+        setNeedsMoreData(false);
+        setResult(data);
+        setHistory(prev => [
+          ...prev,
+          { role: 'user', content: additionalData || 'No additional data' },
           { role: 'assistant', content: data.final_response || '' },
         ]);
       }
@@ -120,7 +165,7 @@ export default function CompanyAnalysis() {
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700 }}>Company Financial Analysis</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            5-agent AI pipeline · Powered by Groq llama3-70b
+            5-agent AI pipeline · Powered by Groq llama-3.3-70b
           </p>
         </div>
       </div>
@@ -148,7 +193,7 @@ export default function CompanyAnalysis() {
             </label>
             <textarea
               className="input-field"
-              placeholder="e.g. Why is my company's revenue declining? What should I do for growth?"
+              placeholder="e.g. Why is my company's revenue declining?"
               value={question}
               onChange={e => setQuestion(e.target.value)}
               rows={3}
@@ -161,12 +206,7 @@ export default function CompanyAnalysis() {
             </label>
             <textarea
               className="input-field"
-              placeholder={`{
-  "monthly_revenue": "₹42L",
-  "monthly_expenses": "₹38L",
-  "employees": 45,
-  "product_returns_rate": "18%"
-}`}
+              placeholder={`{\n  "monthly_revenue": "₹42L",\n  "employees": 45\n}`}
               value={companyData}
               onChange={e => setCompanyData(e.target.value)}
               rows={5}
@@ -198,7 +238,7 @@ export default function CompanyAnalysis() {
 
           <button
             className="btn-primary"
-            onClick={() => handleAnalyze(false)}
+            onClick={handleAnalyze}
             disabled={loading}
             style={{ width: '100%', justifyContent: 'center' }}
           >
@@ -241,7 +281,7 @@ export default function CompanyAnalysis() {
           })}
 
           {/* More data request */}
-          {needsMoreData && (
+          {needsMoreData && !loading && (
             <div style={{ marginTop: 16, padding: 16, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
                 <Plus size={16} color="var(--accent-orange)" />
@@ -250,19 +290,29 @@ export default function CompanyAnalysis() {
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>{dataRequest}</p>
               <textarea
                 className="input-field"
-                placeholder="Enter additional data (JSON or text)…"
+                placeholder="Enter additional data (JSON or text), or leave empty to skip…"
                 value={additionalData}
                 onChange={e => setAdditionalData(e.target.value)}
                 rows={4}
               />
-              <button
-                className="btn-primary"
-                onClick={() => handleAnalyze(true)}
-                disabled={loading || !additionalData.trim()}
-                style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}
-              >
-                <Send size={16} /> Submit Additional Data
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button
+                  className="btn-primary"
+                  onClick={handleSubmitAdditional}
+                  disabled={loading}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  <Send size={16} /> Submit Additional Data
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={handleSubmitAdditional}
+                  disabled={loading}
+                  style={{ flexShrink: 0 }}
+                >
+                  Skip
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -271,7 +321,6 @@ export default function CompanyAnalysis() {
       {/* Results */}
       {result && (
         <>
-          {/* AI narrative */}
           <div className="card" style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 16, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
               <CheckCircle2 size={16} color="var(--accent-green)" />
@@ -282,7 +331,6 @@ export default function CompanyAnalysis() {
             </div>
           </div>
 
-          {/* Dashboard charts */}
           {result.dashboard_data && <CompanyDashboard data={result.dashboard_data} decisions={result.decisions} />}
         </>
       )}
